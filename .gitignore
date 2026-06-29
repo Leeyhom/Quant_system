@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+
+# 本地数据（行情文件不入库，体积大且可重新拉取）
+data/
+results/
+
+# 聚宽/回测原始导出与压缩包。保留 markdown / validation csv 等轻量结论文件即可。
+jointquant/**/transaction.csv
+jointquant/**/position.csv
+jointquant/**/log.txt
+*.zip
+
+# 敏感配置
+.env
+.env.*
+!.env.example
+
+# 环境
+.venv/
+env/
+venv/
+
+# 编辑器/系统
+.DS_Store
+.vscode/
+.idea/
+.claude/

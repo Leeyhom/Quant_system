@@ -1,0 +1,14 @@
+# 量化系统 M1 依赖
+# 数据处理
+pandas>=2.0
+numpy>=1.24
+# A股免费行情数据源
+akshare>=1.12
+# Parquet 列式存储（pandas 读写 parquet 的后端）
+pyarrow>=14.0
+# 画图（收盘价走势等）
+matplotlib>=3.7
+
+# 第三方执行层校验（可选）：用于把项目生成的目标权重交给 RQAlpha 回放，
+# 对比撮合、整手、交易费用等执行差异。
+rqalpha>=6.2

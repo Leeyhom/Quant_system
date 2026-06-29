@@ -1,0 +1,30 @@
+# JoinQuant v4 Aligned Search
+
+- Local window: 20190101 ~ 20251231
+- Factor lookback starts: 20180101
+- Constraint: JoinQuant-reproducible fields, 100-share lots, A-share fees, 95% max exposure.
+
+## Top 20 by Sharpe
+
+| factor_name               | factors                                                                 |   top_n |   rebalance_days |   industry_cap | weight_mode   |   total_return |   annualized_return |   sharpe |   max_drawdown |   avg_cash |   avg_turnover |
+|:--------------------------|:------------------------------------------------------------------------|--------:|-----------------:|---------------:|:--------------|---------------:|--------------------:|---------:|---------------:|-----------:|---------------:|
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |       6 |               30 |              2 | equal         |        3.94811 |            0.267655 |  1.18997 |       0.182549 |  0.0724366 |       0.578137 |
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |      15 |               20 |              2 | equal         |        2.58898 |            0.208689 |  1.12901 |       0.170303 |  0.134631  |       0.319532 |
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |       6 |               30 |              2 | inverse_vol   |        2.92903 |            0.225028 |  1.11633 |       0.163712 |  0.0773941 |       0.645068 |
+| value_cash_growth         | earnings_yield,cashflow_yield,sales_yield,growth_peg                    |       8 |               30 |              2 | equal         |        2.60995 |            0.209734 |  1.10911 |       0.203303 |  0.0898635 |       0.43884  |
+| value_cash_growth         | earnings_yield,cashflow_yield,sales_yield,growth_peg                    |       8 |               60 |              2 | equal         |        2.54525 |            0.206494 |  1.10066 |       0.15602  |  0.0870361 |       0.604703 |
+| v3_no_amihud_quality      | earnings_yield,cashflow_yield,sales_yield,growth_peg,quality_roe        |      15 |               40 |              2 | inverse_vol   |        1.79413 |            0.164631 |  1.09418 |       0.140861 |  0.187019  |       0.518396 |
+| quality_growth_momentum   | quality_roe,growth_peg,momentum_60,ma_slope_60                          |       6 |               30 |              2 | equal         |        4.5319  |            0.288798 |  1.09062 |       0.285759 |  0.130204  |       0.879824 |
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |      15 |               20 |              2 | inverse_vol   |        1.86546 |            0.168994 |  1.08148 |       0.138227 |  0.165507  |       0.376427 |
+| v3_no_amihud_quality      | earnings_yield,cashflow_yield,sales_yield,growth_peg,quality_roe        |      12 |               40 |              2 | inverse_vol   |        1.95776 |            0.174504 |  1.06464 |       0.149413 |  0.161486  |       0.567118 |
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |      12 |               20 |              2 | equal         |        2.52297 |            0.205366 |  1.06263 |       0.199605 |  0.122502  |       0.339587 |
+| value_quality_cash_growth | earnings_yield,cashflow_yield,quality_roe,growth_peg                    |      15 |               40 |              2 | equal         |        2.16075 |            0.186124 |  1.06126 |       0.151814 |  0.184554  |       0.466195 |
+| v3_plus_quality           | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud,quality_roe |      15 |               40 |              1 | equal         |        2.05614 |            0.180218 |  1.06079 |       0.170009 |  0.170616  |       0.485695 |
+| v3_plus_quality           | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud,quality_roe |       8 |               40 |              1 | equal         |        3.07942 |            0.231872 |  1.0607  |       0.227682 |  0.109332  |       0.582266 |
+| quality_growth_momentum   | quality_roe,growth_peg,momentum_60,ma_slope_60                          |       6 |               30 |              2 | inverse_vol   |        3.64213 |            0.25571  |  1.05966 |       0.278151 |  0.145625  |       0.940966 |
+| v3_no_amihud_quality      | earnings_yield,cashflow_yield,sales_yield,growth_peg,quality_roe        |      15 |               40 |              2 | equal         |        2.02051 |            0.178166 |  1.05804 |       0.148729 |  0.168239  |       0.442883 |
+| v3_plus_quality           | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud,quality_roe |      10 |               40 |              1 | equal         |        2.61339 |            0.209905 |  1.05737 |       0.191514 |  0.140581  |       0.541946 |
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |      10 |               20 |              1 | equal         |        2.80705 |            0.219311 |  1.04992 |       0.189169 |  0.0994957 |       0.408018 |
+| v3_plus_lowvol            | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud,low_vol_60  |       8 |               30 |              1 | equal         |        2.59356 |            0.208918 |  1.0475  |       0.192492 |  0.093883  |       0.586209 |
+| v3_full                   | earnings_yield,cashflow_yield,sales_yield,growth_peg,amihud             |      15 |               60 |              2 | equal         |        2.23289 |            0.190101 |  1.04508 |       0.152388 |  0.143324  |       0.53149  |
+| quality_growth_momentum   | quality_roe,growth_peg,momentum_60,ma_slope_60                          |       6 |               20 |              1 | inverse_vol   |        3.45992 |            0.248274 |  1.04329 |       0.283332 |  0.152908  |       0.720633 |

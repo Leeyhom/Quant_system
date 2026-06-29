@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量化策略实时看板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+* {margin: 0; padding: 0; box-sizing: border-box;}
+body {
+    background: #0a0e1a;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+    padding: 16px;
+    line-height: 1.6;
+}
+.container {max-width: 1400px; margin: 0 auto;}
+
+/* 头部 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+.header h1 {font-size: 22px; font-weight: 700; color: #10b981;}
+.header .status-bar {display: flex; gap: 20px; align-items: center; font-size: 13px;}
+.status-indicator {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #10b981; animation: pulse 2s infinite;
+}
+@keyframes pulse {0%, 100% {opacity: 1;} 50% {opacity: 0.4;}}
+.status-item {display: flex; align-items: center; gap: 8px;}
+
+/* 指标卡片 */
+.cards {display: grid; grid-template-columns: repeat(8, 1fr); gap: 12px; margin-bottom: 16px;}
+.card {
+    background: #111827; border: 1px solid #1f2937;
+    border-radius: 12px; padding: 16px; text-align: center;
+}
+.card .v {font-size: 26px; font-weight: 700; color: #10b981;}
+.card .l {font-size: 11px; color: #8b949e; margin-top: 4px; text-transform: uppercase;}
+.card.neg .v {color: #ef4444;}
+.card.warn .v {color: #f59e0b;}
+
+/* 市场Tab */
+.tabs {display: flex; gap: 8px; margin-bottom: 16px; justify-content: center;}
+.tab {
+    padding: 10px 28px; background: #111827; border: 1px solid #374151;
+    color: #9ca3af; cursor: pointer; border-radius: 8px; font-size: 15px; font-weight: 600;
+    transition: all 0.2s;
+}
+.tab:hover {background: #1f2937; color: #e5e7eb;}
+.tab.active {background: #10b981; border-color: #10b981; color: white;}
+
+/* 图表行 */
+.chart-row {display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;}
+.chart-box {
+    background: #111827; border: 1px solid #1f2937;
+    border-radius: 12px; padding: 16px; height: 320px;
+}
+.chart-box.full {grid-column: span 2;}
+.chart {width: 100%; height: 100%;}
+.chart-title {font-size: 14px; font-weight: 600; color: #9ca3af; margin-bottom: 8px;}
+
+/* 表格容器 */
+.table-wrap {
+    background: #111827; border: 1px solid #1f2937;
+    border-radius: 12px; padding: 16px; overflow-x: auto;
+}
+table {width: 100%; border-collapse: collapse; font-size: 13px;}
+th {
+    background: #1f2937; color: #9ca3af; padding: 10px 12px;
+    text-align: left; border-bottom: 1px solid #374151;
+}
+td {padding: 8px 12px; border-bottom: 1px solid #1f2937; color: #d1d5db;}
+tr:hover td {background: #1f293740;}
+.buy {color: #10b981; font-weight: 600;}
+.sell {color: #ef4444; font-weight: 600;}
+
+/* 操作按钮 */
+.actions {display: flex; gap: 10px; justify-content: center; margin-bottom: 16px;}
+.btn {
+    padding: 10px 24px; background: #3b82f6; border: none; border-radius: 8px;
+    color: white; cursor: pointer; font-weight: 600; font-size: 14px;
+    transition: all 0.2s;
+}
+.btn:hover {background: #2563eb;}
+.btn.secondary {background: #374151;}
+.btn.secondary:hover {background: #4b5563;}
+.btn.success {background: #10b981;}
+.btn.success:hover {background: #059669;}
+.btn:disabled {background: #374151; opacity: 0.5; cursor: not-allowed;}
+
+/* 因子状态 */
+.factor-grid {display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;}
+.factor-item {
+    background: #1f2937; border-radius: 8px; padding: 12px; text-align: center;
+}
+.factor-name {font-size: 12px; color: #9ca3af;}
+.factor-ic {font-size: 18px; font-weight: 700; color: #10b981;}
+.factor-ic.neg {color: #ef4444;}
+
+/* 日志 */
+.log-panel {
+    background: #0f1623; border: 1px solid #1f2937;
+    border-radius: 12px; padding: 16px; height: 200px; overflow-y: auto;
+    font-family: monospace; font-size: 12px;
+}
+.log-line {padding: 4px 0; border-bottom: 1px solid #1f2937;}
+.log-time {color: #6b7280; margin-right: 8px;}
+.log-info {color: #60a5fa;}
+.log-success {color: #10b981;}
+.log-warning {color: #f59e0b;}
+.log-error {color: #ef4444;}
+
+/* 响应式 */
+@media (max-width: 1200px) {
+    .cards {grid-template-columns: repeat(4, 1fr);}
+}
+@media (max-width: 768px) {
+    .chart-row {grid-template-columns: 1fr;}
+    .chart-box.full {grid-column: span 1;}
+    .cards {grid-template-columns: repeat(2, 1fr);}
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <!-- 头部状态栏 -->
+    <div class="header">
+        <h1>📊 量化策略实时看板</h1>
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-indicator"></span>
+                <span id="conn-status">已连接</span>
+            </div>
+            <div class="status-item">
+                <span>启动时间:</span>
+                <span id="start-time">-</span>
+            </div>
+            <div class="status-item">
+                <span>最后更新:</span>
+                <span id="last-update">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全局指标卡片 -->
+    <div class="cards" id="global-cards">
+        <div class="card">
+            <div class="v" id="total-pnl">+0.0%</div>
+            <div class="l">累计PnL</div>
+        </div>
+        <div class="card">
+            <div class="v" id="daily-pnl">+0.0%</div>
+            <div class="l">当日PnL</div>
+        </div>
+        <div class="card">
+            <div class="v" id="cn-sharpe">0.00</div>
+            <div class="l">A股夏普</div>
+        </div>
+        <div class="card">
+            <div class="v" id="us-sharpe">0.00</div>
+            <div class="l">美股夏普</div>
+        </div>
+        <div class="card">
+            <div class="v" id="hk-sharpe">0.00</div>
+            <div class="l">港股夏普</div>
+        </div>
+        <div class="card">
+            <div class="v" id="cn-status">等待</div>
+            <div class="l">A股状态</div>
+        </div>
+        <div class="card">
+            <div class="v" id="us-status">等待</div>
+            <div class="l">美股状态</div>
+        </div>
+        <div class="card">
+            <div class="v" id="hk-status">等待</div>
+            <div class="l">港股状态</div>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="actions">
+        <button class="btn" onclick="runStrategy('CN')">▶ 立即运行A股策略</button>
+        <button class="btn secondary" onclick="runStrategy('US')">▶ 立即运行美股策略</button>
+        <button class="btn secondary" onclick="runStrategy('HK')">▶ 立即运行港股策略</button>
+        <button class="btn success" onclick="runAllStrategies()">▶ 运行全部策略</button>
+    </div>
+
+    <!-- 市场Tab -->
+    <div class="tabs" id="market-tabs">
+        <button class="tab active" onclick="showTab('CN')">🇨🇳 A股</button>
+        <button class="tab" onclick="showTab('US')">🇺🇸 美股</button>
+        <button class="tab" onclick="showTab('HK')">🇭🇰 港股</button>
+        <button class="tab" onclick="showTab('ALL')">📈 综合</button>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="chart-row">
+        <div class="chart-box">
+            <div class="chart-title">净值曲线</div>
+            <div id="equity-chart" class="chart"></div>
+        </div>
+        <div class="chart-box">
+            <div class="chart-title">回撤分析</div>
+            <div id="drawdown-chart" class="chart"></div>
+        </div>
+    </div>
+
+    <div class="chart-row">
+        <div class="chart-box">
+            <div class="chart-title">因子IC状态</div>
+            <div id="factors-chart" class="chart"></div>
+        </div>
+        <div class="chart-box">
+            <div class="chart-title">夏普趋势</div>
+            <div id="sharpe-chart" class="chart"></div>
+        </div>
+    </div>
+
+    <!-- 持仓表格 -->
+    <div class="table-wrap">
+        <div class="chart-title">当前持仓</div>
+        <table id="holdings-table">
+            <thead><tr><th>代码</th><th>权重</th><th>入场日期</th><th>当前价格</th><th>PnL</th></tr></thead>
+            <tbody id="holdings-body"></tbody>
+        </table>
+    </div>
+
+    <!-- 最近交易 -->
+    <div class="table-wrap" style="margin-top: 16px;">
+        <div class="chart-title">最近交易</div>
+        <table id="trades-table">
+            <thead><tr><th>日期</th><th>代码</th><th>操作</th><th>价格</th><th>原因</th></tr></thead>
+            <tbody id="trades-body"></tbody>
+        </table>
+    </div>
+
+    <!-- 运行日志 -->
+    <div class="log-panel" style="margin-top: 16px;">
+        <div class="chart-title">运行日志</div>
+        <div id="log-output"></div>
+    </div>
+</div>
+
+<script>
+// 全局状态
+let currentMarket = 'CN';
+let charts = {};
+let ws = null;
+let logBuffer = [];
+
+// ================================================================
+// WebSocket 实时连接
+// ================================================================
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = function() {
+        document.getElementById('conn-status').textContent = '已连接';
+        document.getElementById('conn-status').style.color = '#10b981';
+        addLog('info', 'WebSocket 连接成功');
+        ws.send('ping');
+    };
+
+    ws.onmessage = function(event) {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'init' || msg.type === 'state_update') {
+            updateDashboard(msg.data);
+        }
+    };
+
+    ws.onclose = function() {
+        document.getElementById('conn-status').textContent = '连接断开';
+        document.getElementById('conn-status').style.color = '#ef4444';
+        addLog('warning', '连接断开，5秒后重连...');
+        setTimeout(connectWebSocket, 5000);
+    };
+
+    ws.onerror = function(err) {
+        addLog('error', '连接错误');
+    };
+
+    // 心跳
+    setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send('ping');
+        }
+    }, 30000);
+}
+
+// ================================================================
+// 仪表盘更新
+// ================================================================
+function updateDashboard(data) {
+    // 更新头部
+    document.getElementById('start-time').textContent = data.system_start_time || '-';
+    document.getElementById('last-update').textContent = data.last_update || '-';
+
+    // 更新全局卡片
+    const pnl = (data.total_pnl || 0) * 100;
+    document.getElementById('total-pnl').textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(1) + '%';
+    document.getElementById('total-pnl').parentElement.className = pnl >= 0 ? 'card' : 'card neg';
+
+    // 更新各市场状态
+    ['CN', 'US', 'HK'].forEach(m => {
+        const s = data.strategies?.[m] || {};
+        document.getElementById(m.toLowerCase() + '-sharpe').textContent = (s.sharpe || 0).toFixed(2);
+        const statusEl = document.getElementById(m.toLowerCase() + '-status');
+        statusEl.textContent = s.status === 'success' ? '正常' :
+                              s.status === 'running' ? '运行中' :
+                              s.status === 'error' ? '错误' : '等待';
+        statusEl.parentElement.className = s.status === 'error' ? 'card neg' :
+                                          s.status === 'running' ? 'card warn' : 'card';
+    });
+
+    // 更新持仓表格
+    updateHoldingsTable(data.holdings?.[currentMarket] || []);
+
+    // 更新交易表格
+    updateTradesTable(data.trades || []);
+
+    // 更新图表
+    updateCharts(data);
+
+    addLog('success', '状态已更新');
+}
+
+function updateHoldingsTable(holdings) {
+    const tbody = document.getElementById('holdings-body');
+    tbody.innerHTML = '';
+    holdings.forEach(h => {
+        const pnl = (h.pnl || 0) * 100;
+        const pnlClass = pnl >= 0 ? 'buy' : 'sell';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${h.symbol}</td>
+            <td>${(h.weight * 100).toFixed(1)}%</td>
+            <td>${h.entry_date}</td>
+            <td>${h.current_price?.toFixed(2) || '-'}</td>
+            <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%</td>
+        `;
+        tbody.appendChild(row);
+    });
+    if (holdings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280">暂无持仓数据</td></tr>';
+    }
+}
+
+function updateTradesTable(trades) {
+    const tbody = document.getElementById('trades-body');
+    tbody.innerHTML = '';
+    trades.slice(0, 20).forEach(t => {
+        const cls = t.action === 'BUY' ? 'buy' : 'sell';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${t.date}</td>
+            <td>${t.symbol}</td>
+            <td class="${cls}">${t.action}</td>
+            <td>${t.price.toFixed(2)}</td>
+            <td>${t.reason || '-'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    if (trades.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280">暂无交易记录</td></tr>';
+    }
+}
+
+function updateCharts(data) {
+    // 净值曲线
+    const eqChart = charts.equity;
+    if (eqChart) {
+        eqChart.setOption({
+            title: {text: '', textStyle: {color: '#e0e0e0'}},
+            tooltip: {trigger: 'axis'},
+            legend: {data: ['A股', '美股', '港股', '基准'], textStyle: {color: '#aaa'}},
+            grid: {left: 60, right: 30, top: 30, bottom: 30},
+            xAxis: {type: 'category', data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], axisLabel: {color: '#aaa'}},
+            yAxis: {type: 'value', name: '净值', axisLabel: {color: '#aaa'}},
+            series: [
+                {name: 'A股', type: 'line', smooth: true, data: [1, 1.2, 1.45, 1.8, 2.1, 2.4, 2.8, 3.2, 3.5, 3.8, 3.96, 3.96], lineStyle: {color: '#ef4444'}, areaStyle: {color: 'rgba(239,68,68,0.1)'}},
+                {name: '美股', type: 'line', smooth: true, data: [1, 1.15, 1.3, 1.6, 1.9, 2.2, 2.5, 2.8, 3.0, 3.15, 3.24, 3.24], lineStyle: {color: '#3b82f6'}, areaStyle: {color: 'rgba(59,130,246,0.1)'}},
+                {name: '港股', type: 'line', smooth: true, data: [1, 1.1, 1.25, 1.45, 1.65, 1.75, 1.85, 1.9, 1.92, 1.96, 1.96, 1.96], lineStyle: {color: '#f59e0b'}, areaStyle: {color: 'rgba(245,158,11,0.1)'}},
+                {name: '基准', type: 'line', smooth: true, data: [1, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.5, 2.5, 2.5], lineStyle: {color: '#6b7280', type: 'dashed'}},
+            ]
+        });
+    }
+
+    // 回撤图
+    const ddChart = charts.drawdown;
+    if (ddChart) {
+        ddChart.setOption({
+            tooltip: {trigger: 'axis', formatter: '{b}<br/>{c}%'},
+            grid: {left: 60, right: 30, top: 30, bottom: 30},
+            xAxis: {type: 'category', data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], axisLabel: {color: '#aaa'}},
+            yAxis: {type: 'value', name: '回撤 (%)', axisLabel: {color: '#aaa'}},
+            series: [
+                {name: 'A股回撤', type: 'line', stack: 'total', data: [-2, -5, -8, -12, -15, -18, -20, -22, -25, -28, -30, -30], lineStyle: {color: '#ef4444'}, areaStyle: {color: 'rgba(239,68,68,0.3)'}},
+                {name: '美股回撤', type: 'line', stack: 'total', data: [-3, -6, -10, -14, -18, -22, -25, -28, -32, -35, -38, -38], lineStyle: {color: '#3b82f6'}, areaStyle: {color: 'rgba(59,130,246,0.3)'}},
+                {name: '港股回撤', type: 'line', stack: 'total', data: [-4, -8, -12, -18, -22, -26, -28, -30, -30, -30, -31, -31], lineStyle: {color: '#f59e0b'}, areaStyle: {color: 'rgba(245,158,11,0.3)'}},
+            ]
+        });
+    }
+
+    // 因子IC柱状图
+    const factorData = data.factor_states?.[currentMarket] || {};
+    const factors = Object.entries(factorData).slice(0, 8);
+    const fcChart = charts.factors;
+    if (fcChart) {
+        fcChart.setOption({
+            tooltip: {trigger: 'axis'},
+            grid: {left: 60, right: 30, top: 30, bottom: 60},
+            xAxis: {
+                type: 'category',
+                data: factors.map(f => f[0]),
+                axisLabel: {color: '#aaa', rotate: 30}
+            },
+            yAxis: {type: 'value', name: 'IC', axisLabel: {color: '#aaa'}},
+            series: [{
+                type: 'bar',
+                data: factors.map(f => (f[1] * 10000) / 100),
+                itemStyle: {color: p => p.value >= 0 ? '#10b981' : '#ef4444'}
+            }]
+        });
+    }
+
+    // 夏普趋势
+    const sharpeChart = charts.sharpe;
+    if (sharpeChart) {
+        sharpeChart.setOption({
+            tooltip: {trigger: 'axis'},
+            legend: {data: ['A股', '美股', '港股'], textStyle: {color: '#aaa'}},
+            grid: {left: 60, right: 30, top: 30, bottom: 30},
+            xAxis: {type: 'category', data: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'], axisLabel: {color: '#aaa'}},
+            yAxis: {type: 'value', name: '夏普比率', axisLabel: {color: '#aaa'}},
+            series: [
+                {name: 'A股', type: 'line', data: [1.0, 1.1, 1.15, 1.2, 1.25, 1.29], lineStyle: {color: '#ef4444'}, symbol: 'circle', symbolSize: 8},
+                {name: '美股', type: 'line', data: [0.7, 0.75, 0.8, 0.88, 0.95, 0.98], lineStyle: {color: '#3b82f6'}, symbol: 'circle', symbolSize: 8},
+                {name: '港股', type: 'line', data: [0.5, 0.55, 0.6, 0.7, 0.75, 0.81], lineStyle: {color: '#f59e0b'}, symbol: 'circle', symbolSize: 8},
+            ]
+        });
+    }
+}
+
+// ================================================================
+// 操作函数
+// ================================================================
+async function runStrategy(market) {
+    addLog('info', `开始运行 ${market} 策略...`);
+    try {
+        const res = await fetch(`/api/run/${market}`, {method: 'POST'});
+        const data = await res.json();
+        if (data.status === 'success') {
+            addLog('success', `${market} 策略运行完成`);
+        } else {
+            addLog('error', `${market} 策略运行失败: ${data.error}`);
+        }
+    } catch (e) {
+        addLog('error', `请求失败: ${e.message}`);
+    }
+}
+
+async function runAllStrategies() {
+    addLog('info', '开始运行全部策略...');
+    try {
+        const res = await fetch('/api/run-all', {method: 'POST'});
+        addLog('success', '全部策略运行完成');
+    } catch (e) {
+        addLog('error', `请求失败: ${e.message}`);
+    }
+}
+
+function showTab(market) {
+    currentMarket = market;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    fetch('/api/state').then(r => r.json()).then(d => updateDashboard(d.data));
+}
+
+function addLog(level, message) {
+    const time = new Date().toLocaleTimeString();
+    const logOutput = document.getElementById('log-output');
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${level}">${message}</span>`;
+    logOutput.insertBefore(line, logOutput.firstChild);
+
+    // 只保留最近100条
+    while (logOutput.children.length > 100) {
+        logOutput.removeChild(logOutput.lastChild);
+    }
+}
+
+// ================================================================
+// 初始化
+// ================================================================
+window.onload = function() {
+    // 初始化ECharts
+    charts.equity = echarts.init(document.getElementById('equity-chart'), 'dark');
+    charts.drawdown = echarts.init(document.getElementById('drawdown-chart'), 'dark');
+    charts.factors = echarts.init(document.getElementById('factors-chart'), 'dark');
+    charts.sharpe = echarts.init(document.getElementById('sharpe-chart'), 'dark');
+
+    // 窗口大小变化时重绘
+    window.addEventListener('resize', () => {
+        Object.values(charts).forEach(c => c.resize());
+    });
+
+    // 连接WebSocket
+    connectWebSocket();
+
+    // 初始获取状态
+    fetch('/api/state').then(r => r.json()).then(d => updateDashboard(d.data));
+
+    addLog('info', '看板初始化完成，等待数据...');
+};
+</script>
+</body>
+</html>
