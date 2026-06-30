@@ -74,6 +74,14 @@ python -m compileall quant scripts
 scripts/joinquant_cn_sim_strategy_v8.py
 ```
 
+最新候选是：
+
+```text
+scripts/joinquant_cn_sim_strategy_v9.py
+```
+
+v9 只把目标仓位从 95% 提到 98%，并保留仍处在高分带内的老持仓；在聚宽真实导出复盘前，不视为已经替代 v8。
+
 最新策略教训：
 
 ```text
@@ -82,7 +90,7 @@ docs/21_joinquant_v7_failure_v8_recovery.md
 
 下一步高优先级工作：
 
-1. 跑 v8 聚宽回测，确认恢复到 v6 附近。
+1. 跑 v9 聚宽回测，并与 v8/v6 真实导出对比。
 2. 补齐聚宽 152 只策略池本地缓存。
 3. 用一致股票池重新做 walk-forward。
-4. 之后再设计 v9 收益增强。
+4. 用 RQAlpha/Backtrader/LEAN 等第三方平台重放 target book，审计执行差异。

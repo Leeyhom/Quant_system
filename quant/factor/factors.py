@@ -19,17 +19,17 @@ import pandas as pd
 
 def momentum(close: pd.DataFrame, window: int = 60) -> pd.DataFrame:
     """动量因子：过去 window 日累计收益，越高越好。"""
-    return close.pct_change(window)
+    return close.pct_change(window, fill_method=None)
 
 
 def reversal(close: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     """反转因子：过去 window 日收益取负，过去跌得多的分数更高。"""
-    return -close.pct_change(window)
+    return -close.pct_change(window, fill_method=None)
 
 
 def low_volatility(close: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     """低波动因子：过去 window 日日收益波动取负，波动越低分数越高。"""
-    ret = close.pct_change()
+    ret = close.pct_change(fill_method=None)
     return -ret.rolling(window).std()
 
 
@@ -114,7 +114,7 @@ def amihud_illiquidity(close: pd.DataFrame, amount: pd.DataFrame, window: int = 
     局限：缺流通股本数据，无法算真正的换手率，这里用成交额近似流动性，
     数值受股票绝对成交额规模影响（大盘股天然成交额大）。仅作研究参考。
     """
-    ret = close.pct_change().abs()
+    ret = close.pct_change(fill_method=None).abs()
     illiq = (ret / amount.replace(0, np.nan)).rolling(window).mean()
     return -illiq
 

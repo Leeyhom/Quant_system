@@ -14,12 +14,21 @@ v8 is a robust recovery version after v7 failed in real JoinQuant backtest expor
 
 Do not treat `joinquant_cn_sim_strategy_v7.py` as the best strategy. It is an important failed experiment.
 
+The latest candidate is:
+
+```text
+scripts/joinquant_cn_sim_strategy_v9.py
+```
+
+v9 keeps the v8 factor score, raises target exposure from 95% to 98%, and keeps existing holdings that remain inside the top 1.5 * TOP_N score band. It is not yet the production baseline until a real JoinQuant export replay confirms it.
+
 ## Most Important Recent Evidence
 
 Read this first:
 
 ```text
 docs/21_joinquant_v7_failure_v8_recovery.md
+docs/22_platform_backtest_and_v9.md
 ```
 
 Key lesson:
@@ -53,8 +62,10 @@ README.md
 AGENTS.md
 docs/21_joinquant_v7_failure_v8_recovery.md
 scripts/joinquant_cn_sim_strategy_v8.py
+scripts/joinquant_cn_sim_strategy_v9.py
 scripts/analyze_joinquant_exports.py
 scripts/refetch_joinquant_pool.py
+scripts/export_joinquant_v9_targets.py
 ```
 
 ## Common Mistakes
@@ -71,7 +82,7 @@ scripts/refetch_joinquant_pool.py
 The next scientifically useful improvement is not another parameter sweep. It is:
 
 ```bash
-NO_PROXY='*' PYTHONPATH=. python scripts/refetch_joinquant_pool.py
+PYTHONPATH=. /opt/homebrew/Caskroom/miniconda/base/envs/quant/bin/python scripts/analyze_joinquant_exports.py jointquant/v9 v9
 ```
 
-Then rerun validation on the exact JoinQuant stock pool and only then design v9.
+After the v9 JoinQuant exports exist, compare v9 against v8/v6. Separately fix the AkShare/py_mini_racer data issue, rerun validation on the exact 152-stock JoinQuant pool, then consider any v10 alpha work.
