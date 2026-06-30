@@ -14,7 +14,7 @@ DASH_DIR.mkdir(parents=True, exist_ok=True)
 # 最终验证结果（无泄漏Walk-Forward）
 FINAL_RESULTS = {
     "CN": {
-        "name": "A股（CN800 v4）",
+        "name": "A股（CN800 v5）",
         "sharpe": 0.98,
         "bench_sharpe": 1.05,
         "excess_sharpe": -0.07,
@@ -24,9 +24,9 @@ FINAL_RESULTS = {
         "win_rate": 63.6,
         "train_days": 480,
         "step_days": 120,
-        "n_factors": 6,
+        "n_factors": 7,
         "n_stocks": 800,
-        "status": "✅ 生产基线",
+        "status": "✅ 生产基线（v5最优）",
     },
     "US": {
         "name": "美股",
