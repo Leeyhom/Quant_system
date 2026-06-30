@@ -191,8 +191,7 @@ class StrategyExecutor:
         self.store.update_strategy(market, status="running", message="正在计算因子...")
 
         try:
-            from scripts.quant_engine import generate_live_portfolio, walk_forward_backtest, load_factors
-            from quant.backtest.metrics import summary
+            from scripts.quant_engine import generate_live_portfolio
 
             # 生成最新持仓
             portfolio = generate_live_portfolio(market)

@@ -308,6 +308,81 @@ def parameter_sweep(market: str, verbose: bool = True) -> pd.DataFrame:
     return df
 
 
+def _cached_portfolio(market: str, top_n: int, capital: float) -> dict:
+    """Fallback for packaged downloads that do not include quant.data loaders."""
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    if market != 'CN':
+        return {
+            'date': today,
+            'market': market,
+            'train_days': 0,
+            'top_n': 0,
+            'capital': capital,
+            'lot_size': 1 if market == 'US' else 100,
+            'allow_fractional': market == 'US',
+            'weights': {},
+            'shares': {},
+            'lots': {},
+            'prices': {},
+            'unaffordable': [],
+            'vol_target': None,
+            'recent_vol': None,
+            'suggested_exposure': None,
+            'factor_directions': {},
+            'factor_ics': {},
+            'sharpe': 0.0,
+            'excess_sharpe': 0.0,
+            'source': 'fallback:no-quant-data',
+        }
+
+    targets_path = PROJECT_ROOT / 'jointquant' / 'v6' / 'v6_rebalance_targets.csv'
+    metrics_path = PROJECT_ROOT / 'jointquant' / 'v6' / 'v6_validation.csv'
+    if not targets_path.exists():
+        raise FileNotFoundError(f"cached CN targets not found: {targets_path}")
+
+    targets_df = pd.read_csv(targets_path)
+    latest = targets_df.iloc[-1]
+    symbols = [
+        s.strip()
+        for s in str(latest.get('targets', '')).split(',')
+        if s.strip()
+    ][:top_n]
+    weight = 1.0 / len(symbols) if symbols else 0.0
+
+    sharpe = 0.0
+    excess_sharpe = 0.0
+    if metrics_path.exists():
+        metrics_df = pd.read_csv(metrics_path)
+        if not metrics_df.empty:
+            metrics = metrics_df.iloc[0]
+            sharpe = float(metrics.get('sharpe', 0.0) or 0.0)
+            excess_sharpe = float(metrics.get('excess_sharpe', 0.0) or 0.0)
+
+    return {
+        'date': str(latest.get('date', today))[:10],
+        'market': market,
+        'train_days': 0,
+        'top_n': len(symbols),
+        'capital': capital,
+        'lot_size': 100,
+        'allow_fractional': False,
+        'weights': {s: weight for s in symbols},
+        'shares': {s: 0 for s in symbols},
+        'lots': {s: 0 for s in symbols},
+        'prices': {s: None for s in symbols},
+        'unaffordable': [],
+        'vol_target': None,
+        'recent_vol': None,
+        'suggested_exposure': None,
+        'factor_directions': {},
+        'factor_ics': {},
+        'sharpe': sharpe,
+        'excess_sharpe': excess_sharpe,
+        'source': str(targets_path.relative_to(PROJECT_ROOT)),
+    }
+
+
 def generate_live_portfolio(market: str, train_days: int = None, top_n: int = 20,
                             capital: float = 10_000.0, vol_target: float = None,
                             vol_lookback: int = 20) -> dict:
@@ -323,7 +398,12 @@ def generate_live_portfolio(market: str, train_days: int = None, top_n: int = 20
     返回 dict（含 weights/shares/lots/prices/unaffordable/suggested_exposure 等）。
     """
     loader = {'CN': QuantMarket.load_cn, 'US': QuantMarket.load_us, 'HK': QuantMarket.load_hk}[market]
-    close, factors = loader()
+    try:
+        close, factors = loader()
+    except ModuleNotFoundError as exc:
+        if exc.name and exc.name.startswith('quant.data'):
+            return _cached_portfolio(market, top_n=top_n, capital=capital)
+        raise
 
     # 默认参数
     default_params = {'CN': 240, 'US': 480, 'HK': 120}
@@ -500,9 +580,11 @@ def main():
             px = port['prices'].get(sym, float('nan'))
             n_sh = port['shares'].get(sym, 0)
             budget = port['capital'] * w
-            actual = n_sh * px if px == px else 0.0
+            has_price = px is not None and px == px
+            actual = n_sh * px if has_price else 0.0
+            px_text = f"{px:.2f}" if has_price else "-"
             warn = f"  ⚠️一手买不起" if sym in port['unaffordable'] else ""
-            print(f"    [{i+1:2d}] {sym:10s} {w:>5.1%} {px:>10.2f} {budget:>9.0f} "
+            print(f"    [{i+1:2d}] {sym:10s} {w:>5.1%} {px_text:>10s} {budget:>9.0f} "
                   f"{n_sh:>7d} {actual:>9.0f}{warn}")
         if port['unaffordable']:
             lot_hint = "1股" if port['allow_fractional'] else f"一手({port['lot_size']}股)"
@@ -538,7 +620,7 @@ def main():
                 'weights': {k: float(v) for k, v in port['weights'].items()},
                 'shares': {k: int(v) for k, v in port['shares'].items()},
                 'lots': {k: int(v) for k, v in port.get('lots', {}).items()},
-                'prices': {k: float(v) for k, v in port['prices'].items()},
+                'prices': {k: (float(v) if v is not None else None) for k, v in port['prices'].items()},
                 'unaffordable': port['unaffordable'],
                 'vol_target': port.get('vol_target'),
                 'recent_vol': port.get('recent_vol'),
