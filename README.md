@@ -8,19 +8,21 @@
 
 项目已经完成从数据管道、因子构建、IC/分层验证、walk-forward、跨市场扩展，到 JoinQuant A股模拟盘策略复盘的完整迭代。
 
-当前最可信的 A股聚宽策略基线是：
-
-```text
-scripts/joinquant_cn_sim_strategy_v8.py
-```
-
-当前最新候选策略是：
+当前最可信的 A股聚宽历史回测基线是：
 
 ```text
 scripts/joinquant_cn_sim_strategy_v9.py
 ```
 
-v9 不是新因子模型，而是在 v8 因子/选股完全不变的前提下，把目标仓位从 95% 提到 98%，并保留仍处在高分带内的老持仓，减少 6 万本金 + 100 股整手约束下的现金拖累和无意义换手。本地 80/152 缓存池验证显示 v9 候选收益、Sharpe、回撤和换手均优于 v8，但它还不能替代 v8 作为生产基线，必须等待聚宽真实导出复盘确认。详见 [docs/22_platform_backtest_and_v9.md](docs/22_platform_backtest_and_v9.md)。
+当前面向模拟盘/新账户冷启动的候选策略是：
+
+```text
+scripts/joinquant_cn_sim_strategy_v10.py
+```
+
+v9 不是新因子模型，而是在 v8 因子/选股完全不变的前提下，把目标仓位从 95% 提到 98%，并保留仍处在高分带内的老持仓，减少 6 万本金 + 100 股整手约束下的现金拖累和无意义换手。聚宽真实导出显示 v9 在 2019-01-01 ~ 2025-12-31 的策略收益为 +192.29%，高于 v6/v7，且 alpha、Sharpe、信息比率均改善。
+
+但 v9 有一个重要模拟盘风险：如果从 2025-01-01 单独冷启动，收益和超额可能为负。原因不是未来函数，而是持仓缓冲、60 日调仓相位、整手约束导致的路径依赖。v10 因此只新增启动仓位 ramp：前三次调仓按 70% -> 85% -> 98% 逐步恢复满仓，因子和选股规则不变。详见 [docs/23_v9_2025_cold_start_v10.md](docs/23_v9_2025_cold_start_v10.md)。
 
 v8 不是激进收益增强版，而是 v7 失败后的稳健恢复版：
 
@@ -58,8 +60,12 @@ quant/
   backtest/                    # 回测层：组合、分层、walk-forward、费用、指标
 
 scripts/
-  joinquant_cn_sim_strategy_v8.py      # 当前建议聚宽模拟盘策略
+  joinquant_cn_sim_strategy_v8.py      # v7 失败后的稳健恢复基线
+  joinquant_cn_sim_strategy_v9.py      # 当前最强聚宽历史回测基线
+  joinquant_cn_sim_strategy_v10.py     # 冷启动/模拟盘启动保护候选
   analyze_joinquant_exports.py         # 聚宽交易/持仓/日志导出复盘
+  joinquant_v9_2025_attribution.py     # v9 真实导出的 2025 年归因
+  joinquant_v9_path_sensitivity.py     # v9 热路径/冷启动/仓位 ramp 对照
   refetch_joinquant_pool.py            # 拉取聚宽策略池到本地缓存
   joinquant_v6_validation.py           # v6 本地验证
   joinquant_v7_validation.py           # v7 失败前本地验证，用于反思过拟合
@@ -73,10 +79,11 @@ docs/
   20_joinquant_v7_score_tilt.md        # v7 设计与本地验证
   21_joinquant_v7_failure_v8_recovery.md # v7 失败复盘与 v8 恢复
   22_platform_backtest_and_v9.md        # 平台化回测与 v9 候选策略
+  23_v9_2025_cold_start_v10.md          # v9 2025 冷启动复盘与 v10
   AUDIT_专业量化审计报告.md             # 审计视角的风险提示
 
 jointquant/
-  v6/, v7/, v8/                        # 聚宽版本复盘摘要和验证文件
+  v6/, v7/, v8/, v9/                   # 聚宽版本复盘摘要和验证文件
   version_metrics/                     # 各版本指标对比
 
 data/
@@ -167,7 +174,7 @@ A股：
 
 短期优先级：
 
-1. 跑 v9 聚宽回测，并与 v8/v6 真实导出对比。
+1. 在聚宽跑 v10 的全周期和 2025 单年冷启动回测，确认启动 ramp 是否修复 v9 的 2025 冷启动问题。
 2. 修复 AkShare/py_mini_racer 行情拉取问题，补齐聚宽 152 只策略池的本地数据。
 3. 用一致股票池重做 walk-forward，而不是继续在 80~89 只缓存池上调参。
 4. 用 `scripts/export_joinquant_v9_targets.py` 导出 target book，在 RQAlpha 等平台重放执行。
@@ -186,6 +193,7 @@ A股：
 - [AGENTS.md](AGENTS.md)：项目工作约定，适合 LLM/代码代理读取。
 - [docs/21_joinquant_v7_failure_v8_recovery.md](docs/21_joinquant_v7_failure_v8_recovery.md)：最新策略失败复盘。
 - [docs/22_platform_backtest_and_v9.md](docs/22_platform_backtest_and_v9.md)：v9 候选与跨平台回测路径。
+- [docs/23_v9_2025_cold_start_v10.md](docs/23_v9_2025_cold_start_v10.md)：v9 2025 冷启动复盘与 v10。
 - [docs/AUDIT_专业量化审计报告.md](docs/AUDIT_专业量化审计报告.md)：审计视角风险。
 - [CONTRIBUTING.md](CONTRIBUTING.md)：贡献流程和 PR 要求。
 
@@ -205,8 +213,9 @@ A股：
 2. 读 `AGENTS.md` 获取工作约定。
 3. 读 `docs/21_joinquant_v7_failure_v8_recovery.md` 理解 v7 失败教训。
 4. 读 `docs/22_platform_backtest_and_v9.md` 理解 v9 候选和平台化回测路径。
-5. 读 `scripts/joinquant_cn_sim_strategy_v8.py` 和 `scripts/joinquant_cn_sim_strategy_v9.py` 获取当前聚宽策略。
-6. 读 `scripts/analyze_joinquant_exports.py` 理解如何复盘真实导出。
+5. 读 `docs/23_v9_2025_cold_start_v10.md` 理解 v9 2025 冷启动问题和 v10。
+6. 读 `scripts/joinquant_cn_sim_strategy_v9.py` 和 `scripts/joinquant_cn_sim_strategy_v10.py` 获取当前聚宽策略。
+7. 读 `scripts/analyze_joinquant_exports.py` 理解如何复盘真实导出。
 
 不要默认相信全样本最优结果。任何新策略都要问：数据池是否一致？是否样本外？是否有未来函数？是否扣除了费用和整手约束？是否只是某一年贡献了大部分收益？
 
