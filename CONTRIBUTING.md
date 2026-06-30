@@ -48,7 +48,7 @@ python -m compileall quant scripts
 - 信号可见时间：是否使用公告日/上一交易日，是否存在未来函数风险。
 - 组合规则：选股数量、行业上限、仓位、再平衡频率、费用/滑点/整手约束。
 - 验证方式：全样本、样本外、walk-forward、聚宽导出复盘。
-- 对比基准：至少和当前主线 `joinquant_cn_sim_strategy_v8.py` 或明确的 baseline 比较。
+- 对比基准：至少和当前主线 `joinquant_cn800_strategy_v5.py` 或明确的历史 baseline 比较。
 
 ## 不接受的改动
 
@@ -68,29 +68,31 @@ python -m compileall quant scripts
 
 ## 当前主线
 
-截至当前版本，A股聚宽主线是：
+截至当前版本，A股聚宽/模拟盘主线是：
 
 ```text
-scripts/joinquant_cn_sim_strategy_v8.py
+scripts/joinquant_cn800_strategy_v5.py
 ```
 
-最新候选是：
+观察计划：
 
 ```text
-scripts/joinquant_cn_sim_strategy_v9.py
+docs/24_cn800_v5_paper_trading_plan.md
 ```
 
-v9 只把目标仓位从 95% 提到 98%，并保留仍处在高分带内的老持仓；在聚宽真实导出复盘前，不视为已经替代 v8。
+CN800 v5 已接入聚宽模拟盘。下一阶段先观察至少一个自然月，回收交易、持仓、日志和净值，再做归因与下一轮迭代。观察期内不因为短期涨跌直接修改 alpha。
 
-最新策略教训：
+历史策略教训：
 
 ```text
 docs/21_joinquant_v7_failure_v8_recovery.md
+docs/22_platform_backtest_and_v9.md
+docs/23_v9_2025_cold_start_v10.md
 ```
 
 下一步高优先级工作：
 
-1. 跑 v9 聚宽回测，并与 v8/v6 真实导出对比。
-2. 补齐聚宽 152 只策略池本地缓存。
-3. 用一致股票池重新做 walk-forward。
+1. 保持 CN800 v5 聚宽模拟盘运行并记录开始日期、初始资金、基准和参数。
+2. 一个月后将模拟盘导出放入 `jointquant/cn800_v5_paper/`，生成可追踪复盘摘要。
+3. 修复 CN800 本地验证链条中的动态成分、幸存者偏差、日志解析和消融表问题。
 4. 用 RQAlpha/Backtrader/LEAN 等第三方平台重放 target book，审计执行差异。

@@ -18,7 +18,7 @@
 ## 结构
 
 - `quant/config.py` 路径常量+HISTORY_START/END · `quant/data/`（akshare_loader 行情, fundamental_loader 日频估值, universe, industry 行业映射, panel 多字段OHLCV+估值面板）· `quant/factor/`（factors 价格+量价+基本面[价值/质量ROE=PB÷PE/成长1÷PEG/现金流1÷PCF]因子, neutralize 行业/市值中性化, composite 多因子IC加权合成）· `quant/strategy/`（dual_ma, mean_reversion 含可选 stop_loss）· `quant/backtest/`（engine, metrics, param_scan, split, batch, portfolio, portfolio_validation, ic_analysis, factor_validation, layered 含分层多头long_top_layer）
-- `scripts/` 可运行 demo（含 refetch_history 扩史 / multifactor_demo 等权合成）· `docs/` 编号讲解 01~14 · `data/raw/` 本地行情+图(git忽略)
+- `scripts/` 可运行 demo（含 refetch_history 扩史 / multifactor_demo 等权合成 / joinquant_cn800_strategy_v5 当前聚宽模拟盘策略）· `docs/` 编号讲解 01~24 · `data/raw/` 本地行情+图(git忽略)
 - 分层铁律：数据/因子/策略/回测分离。单票策略输出信号(0/1)；组合策略输出权重。
 
 ## 关键约定
@@ -27,6 +27,13 @@
 - 回测须含手续费+滑点，并与「买入持有」基准对比才有意义。
 - 改策略保持向后兼容（如 stop_loss 默认 None=关闭，行为不变）。
 - 评估策略要看样本外(test)，不能只看样本内调出来的最优参数。
+
+## 当前主线
+
+- 当前聚宽模拟盘主线：`scripts/joinquant_cn800_strategy_v5.py`（CN800 v5）。
+- 观察计划：`docs/24_cn800_v5_paper_trading_plan.md`。
+- 现在的默认动作是等待一个月模拟盘结果回收并做归因，不默认继续开新 alpha 版本。
+- v9/v10 是 CN800 之前的历史基线和冷启动经验；需要比较时再读取 `docs/22_platform_backtest_and_v9.md` 与 `docs/23_v9_2025_cold_start_v10.md`。
 
 ## 进度
 
