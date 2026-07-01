@@ -31,6 +31,13 @@ def main() -> None:
     args = parse_args()
     if not TARGET_FILE.exists():
         raise FileNotFoundError(f"Missing target file: {TARGET_FILE}. Run rqalpha_export_cn_targets.py first.")
+    if args.bundle is None:
+        default_bundle = Path.home() / ".rqalpha" / "bundle"
+        if not default_bundle.exists():
+            raise SystemExit(
+                "Missing RQAlpha data bundle: ~/.rqalpha/bundle. "
+                "Run `rqalpha download-bundle` or pass `--bundle /path/to/bundle`."
+            )
 
     cmd = [
         sys.executable, "-m", "rqalpha", "run",
@@ -49,6 +56,9 @@ def main() -> None:
 
     env = os.environ.copy()
     env["RQALPHA_TARGET_WEIGHTS"] = str(TARGET_FILE)
+    mpl_cache = PROJECT_ROOT / "data" / "matplotlib_cache"
+    mpl_cache.mkdir(parents=True, exist_ok=True)
+    env.setdefault("MPLCONFIGDIR", str(mpl_cache))
 
     print("Running:")
     print(" ".join(cmd))

@@ -6,27 +6,70 @@
 
 ## 当前状态
 
-项目已经完成从数据管道、因子构建、IC/分层验证、walk-forward、跨市场扩展，到 JoinQuant A股模拟盘策略复盘的完整迭代。
+项目已完成从数据管道到跨市场验证的完整迭代。当前主攻方向：**CN800扩展池（800只）+ 多因子截面选股**。
 
-当前最可信的 A股聚宽策略基线是：
+### 当前最优基线：CN800 v5
+
+![v5回测曲线](docs/images/v5_backtest.png)
+
+聚宽实测（2019-01-02 ~ 2025-12-31, 6万本金, 沪深300基准）：
+
+| 指标 | 数值 | 指标 | 数值 |
+|---|---|---|---|
+| **策略累计收益** | **+298.07%** | 基准累计收益 | +53.79% |
+| 策略年化收益 | +22.54% | 超额收益 | +158.85% |
+| **Sharpe** | **0.863** | 索提诺比率 | 1.214 |
+| 最大回撤 | 30.67% | 最大回撤区间 | 2022/01~2024/09 |
+| Alpha（年化） | 0.165 | 信息比率 | 1.007 |
+| Beta | 0.790 | 策略波动率 | 0.215 |
+| 胜率 | 53.2% | 日胜率 | 51.7% |
+| 盈亏比 | 2.649 | 超额收益夏普 | 0.694 |
+
+v5 因子体系（7因子）：
+- value_blend(1.0) + growth_peg(1.0) + amihud(1.0) + quality_roe(0.5) + low_vol_60(0.5) + residual_momentum(0.5) + roe_stability(0.3)
+- 波动率目标降仓(25%目标, 50%底仓) + 自适应动量(市场regime检测)
+- 动态行业上限 + 资金效率优化
+
+### 本地 Walk-Forward 验证
+
+本地 honest walk-forward（train=480/test=120/step=120, 11窗口, v3因子集）验证了池子扩展的收益：
+- CN800池(702只有效): +182.8% 收益, 年化 +22.0%, **Sharpe 0.98**, 回撤 34.8%
+- 旧池(91只有效): +60.3% 收益, 年化 +9.4%, Sharpe 0.48, 回撤 46.2%
+- **不改因子，仅将股票池从152→800只，收益+122pct，Sharpe翻倍，回撤-11pct**
+
+> 注意：本地WF用的是v3时代的5因子（无residual_momentum/roe_stability），用于验证池子扩大的效果。聚宽v2~v8迭代在此基础上逐步叠加因子和组合优化。
+
+### 策略文件
 
 ```text
-scripts/joinquant_cn_sim_strategy_v8.py
+scripts/joinquant_cn800_strategy_v5.py    ← 当前聚宽模拟盘主线（回测最优生产候选）
+scripts/joinquant_cn800_strategy_v4.py    ← v4（自适应动量+资金效率，轻量备选）
+scripts/joinquant_cn800_strategy.py       ← v3（残差动量+动态cap）
+scripts/joinquant_cn800_strategy_v6~v8.py ← 实验版本（完整迭代记录）
+scripts/cn800_walkforward.py              ← 本地 walk-forward 验证
+scripts/cn800_v4_engine.py                ← 本地执行引擎（实盘对接用）
 ```
 
-v8 不是激进收益增强版，而是 v7 失败后的稳健恢复版：
+### 版本演进简史
 
-- `TOP_N = 10`
-- `INDUSTRY_CAP = 2`
-- `REBALANCE_DAYS = 60`
-- `MAX_EXPOSURE = 95%`
-- `MOMENTUM_120_MIN = -10%`
-- `QUALITY_WEIGHT = 0.5`
-- `LOWVOL_WEIGHT = 0.5`
-- `INCLUDE_HOLDER = False`
-- 等权持仓，不做分数倾斜
+| 版本 | 核心改动 | 聚宽相对表现 | 结论 |
+|---|---|---|---|
+| v2 | 800池+SW31行业 | 基线 | 池子扩大奠定基础 |
+| v3 | +残差动量+动态cap | 改善 | 动量信号有效 |
+| v4 | +自适应动量+资金效率 | 改善 | 市场状态感知有价值 |
+| **v5** | **+vol目标降仓+ROE稳定性** | **最优** | **✅ 当前模拟盘主线** |
+| v6 | 回撤刹车 | 变差 | 择时降仓不适配集中组合 |
+| v7 | 价值×动量交互 | 持平 | 交互项与父因子共线 |
+| v8 | 短期反转因子 | 变差 | 因子叠加边际衰减 |
 
-为什么回到 v8：v7 在本地验证中看起来更好，但聚宽真实导出表现显著恶化。v7 总收益 +111.13%，低于 v6 的 +188.42%；最大回撤 34.01%，高于 v6 的 22.28%。详见 [docs/21_joinquant_v7_failure_v8_recovery.md](docs/21_joinquant_v7_failure_v8_recovery.md)。
+### 关键经验
+
+经过v2→v8七轮迭代的核心教训：
+1. **池子扩大是最强杠杆**：152→800只带来的改善超过所有后续因子叠加之和
+2. **结构性修复 > 因子叠加**：v3(残差动量)、v4(自适应动量)改变了信号利用方式，比v7/v8的纯因子叠加有效
+3. **择时降仓极度危险**：v6回撤刹车锁死仓位2年+，收益腰斩。10只集中组合的正常波动就是15-25%，降仓阈值无法避开
+4. **因子边际效用递减**：6→7因子的增量远小于2→3或3→4
+5. **不是每个版本都需要超越前一个**：v5→v8的"持平或更差"同样是珍贵的负样本
 
 ## 核心结论
 
@@ -50,8 +93,15 @@ quant/
   backtest/                    # 回测层：组合、分层、walk-forward、费用、指标
 
 scripts/
-  joinquant_cn_sim_strategy_v8.py      # 当前建议聚宽模拟盘策略
+  joinquant_cn800_strategy_v5.py       # 当前 A股聚宽模拟盘主线（CN800 v5）
+  joinquant_cn800_strategy_v4.py       # CN800 轻量强候选
+  cn800_walkforward.py                 # CN800 扩池 walk-forward 验证
+  joinquant_cn_sim_strategy_v8.py      # v7 失败后的稳健恢复基线
+  joinquant_cn_sim_strategy_v9.py      # CN800 之前的最强历史基线
+  joinquant_cn_sim_strategy_v10.py     # v9 冷启动/现金账户启动保护实验
   analyze_joinquant_exports.py         # 聚宽交易/持仓/日志导出复盘
+  joinquant_v9_2025_attribution.py     # v9 真实导出的 2025 年归因
+  joinquant_v9_path_sensitivity.py     # v9 热路径/冷启动/仓位 ramp 对照
   refetch_joinquant_pool.py            # 拉取聚宽策略池到本地缓存
   joinquant_v6_validation.py           # v6 本地验证
   joinquant_v7_validation.py           # v7 失败前本地验证，用于反思过拟合
@@ -64,10 +114,13 @@ docs/
   19_joinquant_v6_alpha.md             # v6 收益改进
   20_joinquant_v7_score_tilt.md        # v7 设计与本地验证
   21_joinquant_v7_failure_v8_recovery.md # v7 失败复盘与 v8 恢复
+  22_platform_backtest_and_v9.md        # 平台化回测与 v9 候选策略
+  23_v9_2025_cold_start_v10.md          # v9 2025 冷启动复盘与 v10
+  24_cn800_v5_paper_trading_plan.md     # CN800 v5 模拟盘观察与回收计划
   AUDIT_专业量化审计报告.md             # 审计视角的风险提示
 
 jointquant/
-  v6/, v7/, v8/                        # 聚宽版本复盘摘要和验证文件
+  v6/, v7/, v8/, v9/, cn800*/          # 聚宽版本复盘摘要和验证文件
   version_metrics/                     # 各版本指标对比
 
 data/
@@ -158,10 +211,10 @@ A股：
 
 短期优先级：
 
-1. 跑 v8 聚宽回测，确认恢复到 v6 附近。
-2. 用 `scripts/refetch_joinquant_pool.py` 补齐聚宽 152 只策略池的本地数据。
-3. 用一致股票池重做 walk-forward，而不是继续在 89 只 `DEFAULT_POOL` 上调参。
-4. 在数据池对齐后，再设计 v9 收益增强。
+1. 将 `scripts/joinquant_cn800_strategy_v5.py` 作为当前聚宽模拟盘主线，观察至少一个自然月。
+2. 一个月后导出模拟盘交易、持仓、日志和净值，放入 `jointquant/cn800_v5_paper/`，再运行导出复盘脚本生成可入库结论。
+3. 在观察期内不因为短期涨跌改 alpha；只记录执行差异、现金闲置、停牌/涨跌停、整手约束、换手和滑点。
+4. 修复 CN800 本地验证链条：动态成分/幸存者偏差、本地 v4/v5 引擎滚动信号、聚宽日志解析和消融表。
 
 中期方向：
 
@@ -175,7 +228,10 @@ A股：
 请先阅读：
 
 - [AGENTS.md](AGENTS.md)：项目工作约定，适合 LLM/代码代理读取。
+- [docs/24_cn800_v5_paper_trading_plan.md](docs/24_cn800_v5_paper_trading_plan.md)：CN800 v5 模拟盘观察与回收计划。
 - [docs/21_joinquant_v7_failure_v8_recovery.md](docs/21_joinquant_v7_failure_v8_recovery.md)：最新策略失败复盘。
+- [docs/22_platform_backtest_and_v9.md](docs/22_platform_backtest_and_v9.md)：v9 候选与跨平台回测路径。
+- [docs/23_v9_2025_cold_start_v10.md](docs/23_v9_2025_cold_start_v10.md)：v9 2025 冷启动复盘与 v10。
 - [docs/AUDIT_专业量化审计报告.md](docs/AUDIT_专业量化审计报告.md)：审计视角风险。
 - [CONTRIBUTING.md](CONTRIBUTING.md)：贡献流程和 PR 要求。
 
@@ -193,9 +249,11 @@ A股：
 
 1. 读 `README.md` 获取当前真实状态。
 2. 读 `AGENTS.md` 获取工作约定。
-3. 读 `docs/21_joinquant_v7_failure_v8_recovery.md` 理解最新策略教训。
-4. 读 `scripts/joinquant_cn_sim_strategy_v8.py` 获取当前聚宽策略。
-5. 读 `scripts/analyze_joinquant_exports.py` 理解如何复盘真实导出。
+3. 读 `docs/LLM_CONTEXT.md` 获取当前唯一主线：CN800 v5 聚宽模拟盘。
+4. 读 `docs/24_cn800_v5_paper_trading_plan.md` 理解模拟盘观察期如何回收证据。
+5. 读 `scripts/joinquant_cn800_strategy_v5.py` 获取当前聚宽策略。
+6. 读 `scripts/analyze_joinquant_exports.py` 理解如何复盘真实导出。
+7. 再读 `docs/21~23` 理解 v7 失败、v9/v10 历史教训和冷启动问题。
 
 不要默认相信全样本最优结果。任何新策略都要问：数据池是否一致？是否样本外？是否有未来函数？是否扣除了费用和整手约束？是否只是某一年贡献了大部分收益？
 
